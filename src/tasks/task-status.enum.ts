@@ -7,6 +7,6 @@ export interface Task {
 
 export enum TaskStatus {
     OPEN = 'OPEN',
-    IN_PREGORESS = 'IN_PREGRESS',
+    IN_PREGORESS = 'IN_PROGRESS',
     DONE = 'DONE'
 }
