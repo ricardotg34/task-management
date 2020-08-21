@@ -5,26 +5,32 @@ import { CreateTaskDto } from './dto/create-task.dto';
 import { FilterTasksDto } from './dto/filter-tasks.dto';
 import { Task } from './schemas/task.schema';
 import { InjectModel } from '@nestjs/mongoose';
+import { User } from 'src/auth/schemas/User.schema';
 
 @Injectable()
 export class TasksService {
   constructor(@InjectModel(Task.name) private taskModel: Model<Task>){}
 
-  async getAllTasks(): Promise<Task[]> {
-    return await this.taskModel.find().exec();
+  async getAllTasks(user: User): Promise<Task[]> {
+    return await this.taskModel.find({user: user._id}).exec();
   }
 
-  async filterTasksByStatus(filterDto: FilterTasksDto): Promise<Task[]> {
-    const {status, search = ''} = filterDto;
-    const tasks: Task[] = await this.taskModel.find({status, description: {$regex: search as string, $options: 'i'}}).exec();
+  async filterTasksByStatus(filterDto: FilterTasksDto, user: User): Promise<Task[]> {
+    const {status = '', search = ''} = filterDto;
+    const query = {
+      status: {$regex: status as string, $options: 'i'},
+      description: {$regex: search as string, $options: 'i'},
+      user: user._id
+    };
+    const tasks: Task[] = await this.taskModel.find(query).exec();
     return tasks;
 
   }
 
-  async getTaskById(id: string): Promise<Task>{
+  async getTaskById(id: string, user?: User): Promise<Task>{
     let found: Task;
     try {
-      found = await this.taskModel.findById(id).exec();
+      found = await this.taskModel.findOne({_id: id, user: user?._id}).exec();
       console.log(found);
       if(!found){
         throw new NotFoundException(`Task with id: ${id} not found.`); // Send the error to catch
@@ -38,20 +44,20 @@ export class TasksService {
     }
   }
 
-  async createTask(createTaskDto: CreateTaskDto): Promise<Task> {
-    const taskCreated = new this.taskModel(createTaskDto);
+  async createTask(createTaskDto: CreateTaskDto, user: User): Promise<Task> {
+    const taskCreated = new this.taskModel({...createTaskDto, user: user._id});
     return taskCreated.save(); //It is a good practice to return the created objext
   }
 
-  async updateTaskStatus(id: string, status: TaskStatus): Promise<Task>{
-    const task = await this.getTaskById(id);
+  async updateTaskStatus(id: string, status: TaskStatus, user: User): Promise<Task>{
+    const task = await this.getTaskById(id, user);
     task.status = status;
     task.save();
     return task;
   }
 
-  async deleteTask(id: string): Promise<void> {
-    const found = await this.getTaskById(id);
+  async deleteTask(id: string, user: User): Promise<void> {
+    const found = await this.getTaskById(id, user);
     await found.remove();
   }
 
